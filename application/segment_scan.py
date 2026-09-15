@@ -182,12 +182,48 @@ def clean_segmentation_mask(mask:np.ndarray, points:np.ndarray, faces:np.ndarray
     mask = _keep_largest_components(mask, faces)
     return mask
 
+def _core_submesh(vertices: np.ndarray, faces: np.ndarray, core_mask: np.ndarray) -> trimesh.Trimesh | None:
+    """Undilated tooth mesh: the core vertices and the faces fully inside them.
+
+    Vertices are NOT re-normalized, they are a subset of the same normalized
+    coordinates the dilated mesh is built from, so the translation/scaling
+    stored in the tooth JSON (and hence the denorm_matrix in landmarks.json)
+    apply unchanged to this mesh. Returns None when no face survives.
+    """
+    if faces.size == 0:
+        return None
+    face_mask = core_mask[faces].all(axis=1)
+    if not face_mask.any():
+        return None
+    old_to_new = np.full(len(vertices), -1, dtype=int)
+    core_idx = np.where(core_mask)[0]
+    old_to_new[core_idx] = np.arange(len(core_idx))
+    return trimesh.Trimesh(vertices=vertices[core_mask],
+                           faces=old_to_new[faces[face_mask]],
+                           process=False)
+
 def dilate_and_save_teeth(mask:np.ndarray, 
                           points:np.ndarray, 
                           faces:np.ndarray, 
                           base_name:str,
                           teeth_output_dir:Path,
-                          cache:TeethCache = None):
+                          cache:TeethCache = None,
+                          core_output_dir:Path | None = None):
+    """
+    Splits the scan into one mesh per tooth. Two meshes are produced per tooth,
+    both in the same normalized frame (see normalize()):
+      * the dilated mesh (tooth + ~5% collar of gum / adjacent teeth), written
+        to `teeth_output_dir`. This is what the landmark model was trained on
+        and what bond.py consumes, so it stays the internal pipeline input;
+      * the undilated mesh (only the vertices carrying the tooth's own label),
+        written to `core_output_dir` (default: `<teeth_output_dir>_core`). This
+        is the one exposed to external consumers; the denorm_matrix of the
+        tooth applies to it as-is.
+    """
+    if core_output_dir is None:
+        core_output_dir = teeth_output_dir.with_name(teeth_output_dir.name + "_core")
+    if not cache:
+        core_output_dir.mkdir(parents=True, exist_ok=True)
     unique_fdi_indices = np.unique(mask)
     print(f"Found {len(unique_fdi_indices)} unique classes: {unique_fdi_indices}")
  
@@ -241,6 +277,11 @@ def dilate_and_save_teeth(mask:np.ndarray,
             print(f"⚠️ Malformed tooth mesh for class {fdi_index}")
             continue  # fix: was missing, would crash on .save() below
 
+        # Undilated mesh, same frame as tooth_mesh (no re-normalization).
+        core_mesh = _core_submesh(normalized_class_points, class_faces, core_mask)
+        if core_mesh is None:
+            print(f"⚠️ No undilated faces for class {fdi_index}, core mesh skipped")
+
  
         # FDI index mapping
         if "lower" in base_name: fdi_index = MAPPING[fdi_index]
@@ -258,6 +299,8 @@ def dilate_and_save_teeth(mask:np.ndarray,
             # Cache mode: store in memory only
             cache.store_mesh(tooth_key, tooth_mesh, json_data)
             cache.store_core(tooth_key, core_points)
+            if core_mesh is not None:
+                cache.store_core_mesh(tooth_key, core_mesh)
             print(f"  Cached FDI {fdi_index}: {len(class_points)} points, {len(class_faces)} faces")
         else:
             # Disk mode: save to file
@@ -276,6 +319,13 @@ def dilate_and_save_teeth(mask:np.ndarray,
                 print(f"    STL: {stl_output_path}")
                 print(f"    JSON: {json_output_path}")
                 print(f"    CORE: {core_output_path} ({len(core_points)}/{len(core_mask)} core verts)")
+                # Undilated mesh: the one exposed externally. Kept out of
+                # teeth_output_dir because the landmark dataset globs every
+                # *.stl in there as a model input.
+                if core_mesh is not None:
+                    core_stl_output_path = core_output_dir / f"{tooth_key}.stl"
+                    core_mesh.export(str(core_stl_output_path))
+                    print(f"    CORE STL: {core_stl_output_path} ({len(core_mesh.faces)} faces)")
             except:
                 print("⚠ Warning, could not export {}".format(stl_output_path))
 

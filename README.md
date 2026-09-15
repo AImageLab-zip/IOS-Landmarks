@@ -171,9 +171,14 @@ Only new/unprocessed `.stl` files trigger work; files already recorded in
 <patient_id>/
   output_seg/
     result/<scan>_pred.npy          per-vertex segmentation mask
-    teeth/<tooth_key>.stl, .json    per-tooth mesh + normalization params (skipped if --cache)
+    teeth/<tooth_key>.stl, .json    per-tooth mesh WITH dilation collar (model input) +
+                                     normalization params (skipped if --cache)
+    teeth_core/<tooth_key>.stl      per-tooth mesh WITHOUT dilation, same normalized frame as
+                                     teeth/ so landmarks.json "denorm_matrix" applies unchanged;
+                                     this is the mesh exposed to the API (skipped if --cache)
     <scan>_segmentation_views.png   only with --vis-seg
-    remeshed/, remeshed_teeth/      only with --remesh
+    remeshed/, remeshed_teeth/,     only with --remesh
+    remeshed_teeth_core/
   output_reg/
     results/
       predictions.json              raw per-tooth heatmap decode

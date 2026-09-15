@@ -12,6 +12,7 @@ class TeethCache:
         self.meshes = {}  # tooth_key -> trimesh object
         self.transforms = {}  # tooth_key -> transform dict
         self.cores = {}  # tooth_key -> (K, 3) undilated vertices
+        self.core_meshes = {}  # tooth_key -> undilated trimesh (same frame as meshes[key])
         self.scan_meshes = {}  # scan_name -> trimesh object
     
     def load_mesh(self, teeth_path: Path, tooth_key: str) -> trimesh.Trimesh:
@@ -62,11 +63,16 @@ class TeethCache:
         """Store undilated tooth vertices in cache (skip disk I/O)."""
         self.cores[tooth_key] = core_points
 
+    def store_core_mesh(self, tooth_key: str, mesh):
+        """Store the undilated tooth mesh in cache (skip disk I/O)."""
+        self.core_meshes[tooth_key] = mesh
+
     def clear(self):
         """Clear all cached data."""
         self.meshes.clear()
         self.transforms.clear()
         self.cores.clear()
+        self.core_meshes.clear()
         self.scan_meshes.clear()
 
     def clear_teeth_data(self):
@@ -74,6 +80,7 @@ class TeethCache:
         self.meshes.clear()
         self.transforms.clear()
         self.cores.clear()
+        self.core_meshes.clear()
 
     def preload_scan_mesh(self, scan_path: Path):
         """Load a full scan mesh once and keep it in memory."""
