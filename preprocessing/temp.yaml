@@ -1,0 +1,5 @@
+upper:
+  transforms:
+    - type: rotate
+      axis: [0, 1, 0]
+      angle_deg: 180

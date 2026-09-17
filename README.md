@@ -285,6 +285,42 @@ python main.py \
 
 A ready-to-use version of this command is available in `run_main_3dteethland.sh`. Run `python main.py --help` for the full list of options.
 
+## Getting the challenge scores (main.py + evaluation/score.py)
+
+1. Run `main.py` with `--collect-gt`, so it also collects ground truth
+   (requires every sample's `<patient_id>_<arch>__kpt.json` file to exist —
+   see the `--data-folder` layout above):
+
+   ```bash
+   python main.py \
+       --samples /path/to/lower.txt /path/to/upper.txt \
+       --data-folder /path/to/dataset \
+       --output-folder /path/to/output \
+       --seg-config  application/app_configs/Pt_semseg_teeth3ds_app.py \
+       --seg-weight  /path/to/seg_weight.pth \
+       --bond-config application/app_configs/Pt_landmarks_app.py \
+       --bond-weight /path/to/bond_weight.pth \
+       --preprocessing preprocessing/3dteethland_preprocessing.yaml \
+       --collect-gt
+   ```
+
+   This writes `predictions.csv` inside a timestamped experiment directory
+   under `--output-folder`, and `gold_standard.pkl` directly under
+   `--output-folder`.
+
+2. Score the predictions against the ground truth with `evaluation/score.py`:
+
+   ```bash
+   python evaluation/score.py \
+       -p /path/to/output/<timestamp>_<id>/predictions.csv \
+       -g /path/to/output/gold_standard.pkl \
+       -o results.json
+   ```
+
+   This writes `results.json` with the mAP/mAR metrics (see
+   `evaluation/README.md` for the full metrics reference, and
+   `evaluation/validate.py` for pre-scoring submission-format checks).
+
 ## segment.py
 Segmentation only (no landmark/bond model) — useful for inspecting masks or
 debugging the base-plate removal (`--debase`) without paying for the full
