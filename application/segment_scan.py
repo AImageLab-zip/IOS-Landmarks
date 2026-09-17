@@ -330,11 +330,12 @@ def dilate_and_save_teeth(mask:np.ndarray,
                 print("⚠ Warning, could not export {}".format(stl_output_path))
 
 
-def postprocess_segmentation(scan_file: Path, 
-                             mask_file: Path, 
-                             output_dir: Path, 
+def postprocess_segmentation(scan_file: Path,
+                             mask_file: Path,
+                             output_dir: Path,
                              remesh:bool =False,
                              visualize:bool = False,
+                             visualize_3d:bool = False,
                              cache:TeethCache = None,
                              preprocessor:ScanNormalizer | None = None):
     """
@@ -382,10 +383,18 @@ def postprocess_segmentation(scan_file: Path,
         faces_remeshed = np.array(remeshed_scan_trimesh.faces)
         dilate_and_save_teeth(remeshed_mask.squeeze(), points_remeshed, faces_remeshed, base_name, remeshed_teeth_output_dir, cache=cache)
 
-    if visualize:
+    if visualize or visualize_3d:
         try:
             with _VIZ_LOCK:
-                create_segmentation_visualization(mesh, cleaned_mask, scan_file.stem, output_dir)
+                # mesh/cleaned_mask are still in the preprocessing-normalized
+                # frame (see `preprocessor.apply` above); undo that just for
+                # the exported visualization so it lines up with the original
+                # scan, without touching the frame used for teeth splitting.
+                viz_mesh = preprocessor.apply_inverse(mesh, arch) if preprocessor else mesh
+                create_segmentation_visualization(
+                    viz_mesh, cleaned_mask, scan_file.stem, output_dir,
+                    save_png=visualize, save_3d=visualize_3d,
+                )
         except Exception as e: print(f"  ⚠️  Visualization failed (continuing anyway): {e}")
     # Get unique FDI indices from cleaned mask (excluding 0 which is gum)
     dilate_and_save_teeth(cleaned_mask, points, faces, base_name, teeth_output_dir, cache=cache)
@@ -396,6 +405,7 @@ def run_segmentation_with_model(cfg,
                                 data_folder: Path,
                                 remesh=False,
                                 visualize=False,
+                                visualize_3d=False,
                                 cache:TeethCache = None,
                                 preprocessor:ScanNormalizer | None = None,
                                 workers: int = 1) -> bool:
@@ -407,7 +417,9 @@ def run_segmentation_with_model(cfg,
         model: Pre-loaded segmentation model
         data_folder: Path to data folder containing STL files
         remesh: set to true if you want to save a remeshed version of the scan
-        visualize: set to true if you want to render the 3d segmentation
+        visualize: set to true if you want to render the segmentation as a flat PNG
+        visualize_3d: set to true if you want to export the colored segmentation
+            mesh as a 3D .ply file
         teethland: must set to true if testing on 3dteethland original scans
         cache: Optional TeethCache for mesh caching
         workers: number of scans to postprocess (mask cleanup + per-tooth mesh
@@ -456,6 +468,7 @@ def run_segmentation_with_model(cfg,
                 output_folder,
                 remesh=remesh,
                 visualize=visualize,
+                visualize_3d=visualize_3d,
                 cache=cache,
                 preprocessor=preprocessor)
 

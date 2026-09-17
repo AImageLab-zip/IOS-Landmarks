@@ -6,6 +6,7 @@ writes for every scan:
   - <stem>_seg.npy        cleaned per-vertex segmentation mask
   - <stem>_landmarks.ply  landmark points, one color per landmark class (only with --save-ply)
   - <stem>_segmentation_views.png  (only with --vis-seg)
+  - <stem>_segmentation.ply       colored 3D segmentation mesh (only with --vis-seg-3d)
 When the input is a folder, its directory structure is replicated inside the
 output folder; a single scan is saved directly in the output folder.
 
@@ -98,6 +99,7 @@ class InferencePipeline:
             args.seg_config, args.seg_weight, args.bond_config, args.bond_weight,
             remesh=False,
             visualize_segmentation=args.vis_seg,
+            visualize_segmentation_3d=args.vis_seg_3d,
             save_ply=args.save_ply,
             cache=TeethCache(),  # tooth meshes are always cached, never exported
             preprocessing=args.preprocessing,
@@ -268,6 +270,10 @@ class InferencePipeline:
             views = work_dir / "output_seg" / f"{internal_stem}_segmentation_views.png"
             if views.exists():
                 shutil.copy(views, out_dir / f"{scan.stem}_segmentation_views.png")
+        if self.engine.visualize_segmentation_3d:
+            seg_mesh = work_dir / "output_seg" / f"{internal_stem}_segmentation.ply"
+            if seg_mesh.exists():
+                shutil.copy(seg_mesh, out_dir / f"{scan.stem}_segmentation.ply")
         print(f"💾 Saved predictions for {scan.name} to {out_dir}")
 
 
@@ -281,6 +287,7 @@ def parse_args():
     parser.add_argument("--bond-weight",   required=True, help="Bond prediction model weights")
     parser.add_argument("--preprocessing", help="YAML with per-arch scan normalization transforms")
     parser.add_argument("--vis-seg",       action="store_true", help="Also save a rendering of the segmentation")
+    parser.add_argument("--vis-seg-3d",    action="store_true", help="Also save a 3D colored mesh of the segmentation (.ply)")
     parser.add_argument("--save-ply",      action="store_true", help="Saves landmarks as point cloud")
     parser.add_argument("--batch",         action="store_true",
                         help="Segment every scan in one pass, then bond every scan in one pass, "

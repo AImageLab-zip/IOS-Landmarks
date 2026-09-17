@@ -74,6 +74,7 @@ class ScanMonitor:
         workers: int = 1,
         save_ply: bool = False,
         vis_seg: bool = False,
+        vis_seg_3d: bool = False,
         preprocessing: str | None = None,
     ):
         self.data_root      = Path(data_root)
@@ -97,6 +98,7 @@ class ScanMonitor:
             seg_config, seg_weight, bond_config, bond_weight,
             remesh=remesh,
             visualize_segmentation=vis_seg,
+            visualize_segmentation_3d=vis_seg_3d,
             save_ply=save_ply,
             cache=TeethCache() if cache else None,
             preprocessing=preprocessing,
@@ -113,6 +115,7 @@ class ScanMonitor:
         print(f"   Workers       : {workers}")
         print(f"   Save PLY      : {save_ply}")
         print(f"   Vis. seg.     : {vis_seg}")
+        print(f"   Vis. seg. 3D  : {vis_seg_3d}")
         print(f"   Landmarks     : {landmarks or 'all'}")
         print(f"   Preprocessing : {preprocessing or 'none (identity)'}")
 
@@ -370,7 +373,8 @@ def main():
     parser.add_argument("--preprocessing",  required=False, default=None,
                          help="YAML with per-arch scan normalization transforms, applied on top of "
                               "the raw-scan ingestion step. Omit for identity (matches old production).")
-    parser.add_argument("--vis-seg",        action="store_true", help="Renders the 3D segmentation")
+    parser.add_argument("--vis-seg",        action="store_true", help="Renders the segmentation as a flat PNG (3 viewpoints)")
+    parser.add_argument("--vis-seg-3d",     action="store_true", help="Saves the colored segmentation mesh as a 3D .ply file")
     parser.add_argument("--save-ply",       action="store_true", help="Saves landmarks as point cloud")
     parser.add_argument("--cache",          action="store_true",
                          help="Cache teeth meshes in memory instead of writing them to disk under "
@@ -405,6 +409,7 @@ def main():
         workers=args.workers,
         save_ply=args.save_ply,
         vis_seg=args.vis_seg,
+        vis_seg_3d=args.vis_seg_3d,
         preprocessing=args.preprocessing,
     )
     monitor.run()

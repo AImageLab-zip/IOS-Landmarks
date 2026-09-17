@@ -391,10 +391,16 @@ def plot_jaw(data_folder:Path, raw_scan:bool = False):
 def create_segmentation_visualization(mesh:trimesh.Trimesh,
                                       mask:np.ndarray,
                                       name:str,
-                                      output_dir: Path):
+                                      output_dir: Path,
+                                      save_png:bool = True,
+                                      save_3d:bool = False):
     """
     Create a visualization of the segmented dental arch from 3 viewpoints.
     Uses a smooth gradient colormap with better distinguishability between teeth.
+
+    save_png: render the usual 3-viewpoint flat image.
+    save_3d: also export the per-vertex-colored mesh as a real 3D file
+        (<name>_segmentation.ply) that can be opened/rotated in a viewer.
     """
     # Convert to pyvista mesh
     pv_mesh = pv.from_trimesh(mesh)
@@ -439,56 +445,67 @@ def create_segmentation_visualization(mesh:trimesh.Trimesh,
 
     pv_mesh["colors"] = colors
 
-    # Define three viewpoints
-    viewpoints = [
-        {"azimuth": 0, "elevation": 0, "title": "Front"},
-        {"azimuth": 90, "elevation": 0, "title": "Side"},
-        {"azimuth": 0, "elevation": 90, "title": "Top"}
-    ]
+    if save_png:
+        # Define three viewpoints
+        viewpoints = [
+            {"azimuth": 0, "elevation": 0, "title": "Front"},
+            {"azimuth": 90, "elevation": 0, "title": "Side"},
+            {"azimuth": 0, "elevation": 90, "title": "Top"}
+        ]
 
-    # Create figure with 3 subplots
-    fig = plt.figure(figsize=(15, 5))
+        # Create figure with 3 subplots
+        fig = plt.figure(figsize=(15, 5))
 
-    for idx, vp in enumerate(viewpoints):
-        plotter = pv.Plotter(off_screen=True, window_size=[800, 800])
-        plotter.add_mesh(pv_mesh, scalars="colors", rgb=True, lighting=False)
-        plotter.camera.azimuth = vp["azimuth"]
-        plotter.camera.elevation = vp["elevation"]
-        plotter.camera.zoom(1.3)
-        img = plotter.screenshot(return_img=True)
-        plotter.close()
+        for idx, vp in enumerate(viewpoints):
+            plotter = pv.Plotter(off_screen=True, window_size=[800, 800])
+            plotter.add_mesh(pv_mesh, scalars="colors", rgb=True, lighting=False)
+            plotter.camera.azimuth = vp["azimuth"]
+            plotter.camera.elevation = vp["elevation"]
+            plotter.camera.zoom(1.3)
+            img = plotter.screenshot(return_img=True)
+            plotter.close()
 
-        ax = fig.add_subplot(1, 3, idx + 1)
-        ax.imshow(img)
-        ax.axis("off")
-        ax.set_title(vp["title"], fontsize=14, fontweight="bold")
+            ax = fig.add_subplot(1, 3, idx + 1)
+            ax.imshow(img)
+            ax.axis("off")
+            ax.set_title(vp["title"], fontsize=14, fontweight="bold")
 
-    # Add legend
-    legend_elements = [
-        Patch(
-            facecolor=color_map[idx],
-            label=f'FDI {INVERSE_AUTOBONDING_MAPPING[int(idx)] - 20 * ("upper" in name)}'
+        # Add legend
+        legend_elements = [
+            Patch(
+                facecolor=color_map[idx],
+                label=f'FDI {INVERSE_AUTOBONDING_MAPPING[int(idx)] - 20 * ("upper" in name)}'
+            )
+            for idx in sorted(unique_idx)
+        ]
+
+        fig.legend(
+            handles=legend_elements,
+            loc="lower center",
+            ncol=min(8, len(unique_idx)),
+            fontsize=9,
+            frameon=True,
+            bbox_to_anchor=(0.5, -0.08)
         )
-        for idx in sorted(unique_idx)
-    ]
 
-    fig.legend(
-        handles=legend_elements,
-        loc="lower center",
-        ncol=min(8, len(unique_idx)),
-        fontsize=9,
-        frameon=True,
-        bbox_to_anchor=(0.5, -0.08)
-    )
+        plt.suptitle(f"Segmentation: {name}", fontsize=16, fontweight="bold")
+        plt.tight_layout()
 
-    plt.suptitle(f"Segmentation: {name}", fontsize=16, fontweight="bold")
-    plt.tight_layout()
+        vis_output_path = output_dir / f"{name}_segmentation_views.png"
+        plt.savefig(vis_output_path, dpi=150, bbox_inches="tight")
+        plt.close()
 
-    vis_output_path = output_dir / f"{name}_segmentation_views.png"
-    plt.savefig(vis_output_path, dpi=150, bbox_inches="tight")
-    plt.close()
+        print(f"  Saved visualization: {vis_output_path}")
 
-    print(f"  Saved visualization: {vis_output_path}")
+    if save_3d:
+        vertex_colors = np.zeros((len(colors), 4), dtype=np.uint8)
+        vertex_colors[:, :3] = np.clip(colors * 255, 0, 255).astype(np.uint8)
+        vertex_colors[:, 3] = 255
+        colored_mesh = mesh.copy()
+        colored_mesh.visual.vertex_colors = vertex_colors
+        mesh_output_path = output_dir / f"{name}_segmentation.ply"
+        colored_mesh.export(mesh_output_path)
+        print(f"  Saved 3D segmentation mesh: {mesh_output_path}")
 
 
 PLY_VERTEX_DTYPE = [("x", "f4"), ("y", "f4"), ("z", "f4"),

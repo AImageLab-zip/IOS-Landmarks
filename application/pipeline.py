@@ -36,6 +36,7 @@ class LandmarksPredictor:
         remesh: bool,
         visualize_segmentation: bool,
         save_ply: bool,
+        visualize_segmentation_3d: bool = False,
         cache: TeethCache | None = None,
         preprocessing=None,
         landmarks: list[str] | None = None,
@@ -47,6 +48,7 @@ class LandmarksPredictor:
         self.bond_weight = Path(bond_weight)
         self.remesh = remesh
         self.visualize_segmentation = visualize_segmentation
+        self.visualize_segmentation_3d = visualize_segmentation_3d
         self.save_ply = save_ply
         self.cache = cache
         self.preprocessing = preprocessing
@@ -87,6 +89,7 @@ class LandmarksPredictor:
                 data_folder=patient_dir,
                 remesh=self.remesh,
                 visualize=self.visualize_segmentation,
+                visualize_3d=self.visualize_segmentation_3d,
                 cache=self.cache,
                 preprocessor=self.preprocessor,
                 workers=self.workers,

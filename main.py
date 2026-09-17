@@ -169,7 +169,8 @@ parser.add_argument("--bond-weight",    required=True, help="Bond prediction mod
 # ================== OPTIONALS =============================
 parser.add_argument("--remesh",         required=False, action="store_true", help="Enables remeshing of scans")
 parser.add_argument("--preprocessing",  required=False, help="Preprocessing")
-parser.add_argument("--vis-seg",        required=False, action="store_true", help="Renders the 3D segmentation")
+parser.add_argument("--vis-seg",        required=False, action="store_true", help="Renders the segmentation as a flat PNG (3 viewpoints)")
+parser.add_argument("--vis-seg-3d",     required=False, action="store_true", help="Saves the colored segmentation mesh as a 3D .ply file")
 parser.add_argument("--save-ply",       required=False, action="store_true", help="Saves landmarks as point cloud")
 parser.add_argument("--cache",          required=False, action="store_true", help="Cache teeth meshes in memory")
 parser.add_argument("--collect-gt",     required=False, action="store_true", help="Looks for __kpt.json files and stores them in a pickle object.")
@@ -204,6 +205,7 @@ model = LandmarksPredictor(args.seg_config,
                             args.remesh,
                             args.vis_seg,
                             args.save_ply,
+                            visualize_segmentation_3d=args.vis_seg_3d,
                             cache=cache,
                             preprocessing=args.preprocessing,
                             landmarks=args.landmarks,
