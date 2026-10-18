@@ -325,3 +325,9 @@ A ready-to-use version of this command is available in `run_main_3dteethland.sh`
 Segmentation only (no landmark/bond model) — useful for inspecting masks or
 debugging the base-plate removal (`--debase`) without paying for the full
 pipeline. Run `python segment.py --help` for the full list of options.
+
+# Citation
+@incollection{veronese2026landmark,
+  title={Landmark-Guided Coarse-to-Fine Registration of Intraoral Scans and Cone-Beam CT},
+  author={Veronese, Alex and Lugli, Matteo and Carpentiero, Omar and Marchesini, Kevin and Lumetti, Luca and Bolelli, Federico and others}
+}
