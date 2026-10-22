@@ -161,14 +161,21 @@ class ScanMonitor:
                 pending.append(item)
         return pending
 
-    def has_new_raw_files(self, patient_dir: Path) -> bool:
+    def has_new_raw_files(self, patient_dir: Path, patient_status: dict) -> bool:
         raw_dir = patient_dir / "raw_data"
         if not raw_dir.is_dir():
             return False
+        failed = set(patient_status.get("failed_files", []))
         for raw_stl in raw_dir.glob("[sS][tT][eE][mM]_*.[sS][tT][lL]"):
+            if raw_stl.name in failed:
+                continue
             if not (patient_dir / raw_stl.name).exists():
                 return True
         return False
+
+    def has_raw_config(self, patient_dir: Path) -> bool:
+        """The config json is written last, so raw_data/ is incomplete without it."""
+        return any((patient_dir / "raw_data").glob("[cC][oO][nN][fF][iI][gG]_*.json"))
 
     def unprocessed_stls(self, patient_dir: Path, patient_status: dict) -> list[str]:
         """STL files in patient_dir not yet marked processed or failed."""
@@ -190,8 +197,9 @@ class ScanMonitor:
         if self.is_already_running(patient_status):
             print(f"  ⏳ {patient_dir.name}: already running, skipping")
             return False
-        if self.has_new_raw_files(patient_dir):
-            return True
+        if self.has_new_raw_files(patient_dir, patient_status):
+            # Still being uploaded: wait instead of failing pre-processing
+            return self.has_raw_config(patient_dir)
         return len(self.unprocessed_stls(patient_dir, patient_status)) > 0
 
     # ------------------------------------------------------------------
@@ -228,9 +236,15 @@ class ScanMonitor:
         })
 
         # ── Stage 1: pre-process raw scans if needed ──────────────────
-        if self.has_new_raw_files(patient_dir):
+        if self.has_new_raw_files(patient_dir, patient_status):
             ok, handled = self.prep.preprocess_raw_scans(patient_id, patient_dir)
             if not ok:
+                # Mark every raw scan failed too, otherwise has_new_raw_files
+                # keeps returning True and the patient is retried forever.
+                handled = list(handled) + [
+                    f.name for f in (patient_dir / "raw_data").glob("[sS][tT][eE][mM]_*.[sS][tT][lL]")
+                ]
+                self.notify_api(patient_id, FAILED, "Pre-processing raw scans failed")
                 patient_status["processing_history"].append({
                     "started_at":  datetime.now().isoformat(),
                     "status":      "failed",
