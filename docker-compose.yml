@@ -4,7 +4,9 @@ services:
     image: autobonding:latest
     container_name: autobonding-monitor
     gpus:
-      - device: 0
+    - driver: nvidia
+      device_ids: ["GPU-513ee291-66e6-a843-78f1-4db548001091"]
+      capabilities: [gpu]
     shm_size: "8gb"
     volumes:
       - ./application/data:/workspace/application/data
@@ -14,6 +16,10 @@ services:
     environment:
       - PYTHONPATH=/workspace
       - DISPLAY=:99
+      # Non-GUI matplotlib backend: with DISPLAY set, matplotlib would otherwise
+      # pick QtAgg, whose closed figures are never freed (no Qt event loop) and
+      # leak ~400 MB per patient.
+      - MPLBACKEND=Agg
       - API_TOKEN=${API_TOKEN}
       # --- application/monitor.py flags, see README.md for details ---
       - CHECK_INTERVAL=${CHECK_INTERVAL:-5}
